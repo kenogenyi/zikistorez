@@ -37,6 +37,7 @@ export interface User {
   password: string | null;
 }
 export interface Product {
+  paystackProductId: any;
   id: string;
   user?: (string | null) | User;
   name: string;
@@ -46,7 +47,7 @@ export interface Product {
   product_files: string | ProductFile;
   approvedForSale?: ('pending' | 'approved' | 'denied') | null;
   priceId?: string | null;
-  stripeId?: string | null;
+  paystackId?: string | null;
   images: {
     image: string | Media;
     id?: string | null;
@@ -140,6 +141,3 @@ export interface PayloadMigration {
 }
 
 
-declare module 'payload' {
-  export interface GeneratedTypes extends Config {}
-}

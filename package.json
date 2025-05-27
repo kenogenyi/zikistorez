@@ -34,6 +34,7 @@
     "@trpc/next": "^10.43.1",
     "@trpc/react-query": "^10.43.1",
     "@trpc/server": "^10.43.1",
+    "axios": "^1.9.0",
     "body-parser": "^1.20.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -45,6 +46,7 @@
     "next": "14.0.1",
     "nodemailer": "^6.9.7",
     "payload": "^2.0.15",
+    "paystack-api": "^2.0.6",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.48.2",
@@ -70,6 +72,7 @@
     "nodemon": "^3.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

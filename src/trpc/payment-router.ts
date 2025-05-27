@@ -6,8 +6,8 @@ import {
 } from './trpc'
 import { TRPCError } from '@trpc/server'
 import { getPayloadClient } from '../get-payload'
-import { stripe } from '../lib/stripe'
-import type Stripe from 'stripe'
+import { paystack } from '../lib/paystack'
+// import type Stripe from 'stripe'
 
 export const paymentRouter = router({
   createSession: privateProcedure
@@ -44,12 +44,41 @@ export const paymentRouter = router({
         },
       })
 
-      const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        []
+      // Prepare Paystack transaction initialization payload
+      const totalAmount = filteredProducts.reduce(
+        (sum, prod) => sum + (typeof prod.price === 'number' ? prod.price : 0),
+        0
+      )
+
+      // Paystack expects amount in kobo (for NGN)
+      const paystackPayload = {
+        amount: totalAmount * 100,
+        email: user.email,
+        metadata: {
+          userId: user.id,
+          orderId: order.id,
+          products: filteredProducts.map((prod) => prod.id),
+        },
+        callback_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/thank-you?orderId=${order.id}`,
+      }
+
+      let paystackInit
+      try {
+        paystackInit = await paystack.post('/transaction/initialize', paystackPayload)
+      } catch (err) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Paystack initialization failed' })
+      }
+
+      // Declare line_items array before using it
+      const line_items: Array<{
+        price: string
+        quantity: number
+        adjustable_quantity?: { enabled: boolean }
+      }> = []
 
       filteredProducts.forEach((product) => {
         line_items.push({
-          price: product.priceId!,
+          price: product.priceId as string,
           quantity: 1,
         })
       })
@@ -63,20 +92,12 @@ export const paymentRouter = router({
       })
 
       try {
-        const stripeSession =
-          await stripe.checkout.sessions.create({
-            success_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/thank-you?orderId=${order.id}`,
-            cancel_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/cart`,
-            payment_method_types: ['card', 'paypal'],
-            mode: 'payment',
-            metadata: {
-              userId: user.id,
-              orderId: order.id,
-            },
-            line_items,
-          })
+        // Return Paystack payment URL
+        return { url: paystackInit.data.authorization_url }
 
-        return { url: stripeSession.url }
+        // Stripe is not used; returning Paystack URL instead
+        // return { url: stripeSession.url }
+        return { url: paystackInit.data.authorization_url }
       } catch (err) {
         return { url: null }
       }

@@ -1,7 +1,6 @@
 import express from 'express'
 import { WebhookRequest } from './server'
-import { stripe } from './lib/stripe'
-import type Stripe from 'stripe'
+import { paystack } from './lib/paystack'
 import { getPayloadClient } from './get-payload'
 import { Product } from './payload-types'
 import { Resend } from 'resend'
@@ -9,21 +8,27 @@ import { ReceiptEmailHtml } from './components/emails/ReceiptEmail'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-export const stripeWebhookHandler = async (
+export const paystackWebhookHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
   const webhookRequest = req as any as WebhookRequest
   const body = webhookRequest.rawBody
-  const signature = req.headers['stripe-signature'] || ''
+  const signature = req.headers['x-paystack-signature'] || ''
 
   let event
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET || ''
-    )
+    // Paystack webhook verification: verify signature manually
+    const crypto = await import('crypto');
+    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_WEBHOOK_SECRET || '')
+      .update(body.toString('utf8'))
+      .digest('hex');
+
+    if (hash !== signature) {
+      return res.status(400).send('Webhook Error: Invalid signature');
+    }
+
+    event = JSON.parse(body.toString('utf8'));
   } catch (err) {
     return res
       .status(400)
@@ -36,26 +41,25 @@ export const stripeWebhookHandler = async (
       )
   }
 
-  const session = event.data
-    .object as Stripe.Checkout.Session
+  const data = event.data;
 
   if (
-    !session?.metadata?.userId ||
-    !session?.metadata?.orderId
+    !data?.metadata?.userId ||
+    !data?.metadata?.orderId
   ) {
     return res
       .status(400)
       .send(`Webhook Error: No user present in metadata`)
   }
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.event === 'charge.success') {
     const payload = await getPayloadClient()
 
     const { docs: users } = await payload.find({
       collection: 'users',
       where: {
         id: {
-          equals: session.metadata.userId,
+          equals: data.metadata.userId,
         },
       },
     })
@@ -72,7 +76,7 @@ export const stripeWebhookHandler = async (
       depth: 2,
       where: {
         id: {
-          equals: session.metadata.orderId,
+          equals: data.metadata.orderId,
         },
       },
     })
@@ -91,26 +95,26 @@ export const stripeWebhookHandler = async (
       },
       where: {
         id: {
-          equals: session.metadata.orderId,
+          equals: data.metadata.orderId,
         },
       },
     })
 
     // send receipt
     try {
-      const data = await resend.emails.send({
+      const emailData = await resend.emails.send({
         from: 'DigitalHippo <hello@joshtriedcoding.com>',
-        to: [user.email],
+        to: [user.email as string],
         subject:
           'Thanks for your order! This is your receipt.',
         html: ReceiptEmailHtml({
           date: new Date(),
-          email: user.email,
-          orderId: session.metadata.orderId,
+          email: user.email as string,
+          orderId: data.metadata.orderId,
           products: order.products as Product[],
         }),
       })
-      res.status(200).json({ data })
+      res.status(200).json({ data: emailData })
     } catch (error) {
       res.status(500).json({ error })
     }

@@ -6,7 +6,8 @@ import { appRouter } from './trpc'
 import { inferAsyncReturnType } from '@trpc/server'
 import bodyParser from 'body-parser'
 import { IncomingMessage } from 'http'
-import { stripeWebhookHandler } from './webhooks'
+// TODO: Ensure 'paystackWebhookHandler' is exported from './webhooks' or import the correct member
+import { paystackWebhookHandler } from './webhooks'
 import nextBuild from 'next/dist/build'
 import path from 'path'
 import { PayloadRequest } from 'payload/types'
@@ -39,9 +40,9 @@ const start = async () => {
   })
 
   app.post(
-    '/api/webhooks/stripe',
+    '/api/webhooks/paystack',
     webhookMiddleware,
-    stripeWebhookHandler
+    paystackWebhookHandler
   )
 
   const payload = await getPayloadClient({

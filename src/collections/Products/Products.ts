@@ -5,7 +5,7 @@ import {
 import { PRODUCT_CATEGORIES } from '../../config'
 import { Access, CollectionConfig } from 'payload/types'
 import { Product, User } from '../../payload-types'
-import { stripe } from '../../lib/stripe'
+import { paystack } from '../../lib/paystack'
 
 const addUser: BeforeChangeHook<Product> = async ({
   req,
@@ -28,10 +28,11 @@ const syncUser: AfterChangeHook<Product> = async ({
   if (fullUser && typeof fullUser === 'object') {
     const { products } = fullUser
 
+    const productArray = Array.isArray(products) ? products : []
     const allIDs = [
-      ...(products?.map((product) =>
+      ...(productArray.map((product) =>
         typeof product === 'object' ? product.id : product
-      ) || []),
+      )),
     ]
 
     const createdProductIDs = allIDs.filter(
@@ -93,46 +94,43 @@ export const Products: CollectionConfig = {
     beforeChange: [
       addUser,
       async (args) => {
+        const data = args.data as Product;
+        let updatedProduct: any;
+
         if (args.operation === 'create') {
-          const data = args.data as Product
+          // Use the correct method to create a product via Paystack API
+          const createdProduct = await paystack.post('/product', {
+            name: data.name,
+            price: Math.round(data.price * 100),
+            currency: 'USD',
+          }).then(res => res.data);
 
-          const createdProduct =
-            await stripe.products.create({
-              name: data.name,
-              default_price_data: {
-                currency: 'USD',
-                unit_amount: Math.round(data.price * 100),
-              },
-            })
-
-          const updated: Product = {
-            ...data,
-            stripeId: createdProduct.id,
-            priceId: createdProduct.default_price as string,
-          }
-
-          return updated
+          updatedProduct = createdProduct;
         } else if (args.operation === 'update') {
-          const data = args.data as Product
+          // Use the correct method to update a product via Paystack API
+          const updated = await paystack.put(`/product/${data.paystackProductId}`, {
+            name: data.name,
+            price: Math.round(data.price * 100),
+            currency: 'USD',
+          }).then(res => res.data);
 
-          const updatedProduct =
-            await stripe.products.update(data.stripeId!, {
-              name: data.name,
-              default_price: data.priceId!,
-            })
-
-          const updated: Product = {
-            ...data,
-            stripeId: updatedProduct.id,
-            priceId: updatedProduct.default_price as string,
-          }
-
-          return updated
+          updatedProduct = updated;
         }
-      },
-    ],
+
+        // Only assign properties that exist on the Product type.
+        const updated: Product = {
+          ...data,
+          paystackProductId: updatedProduct.id,
+          // If paystackPrice and paystackCurrency are not in Product type, remove these lines:
+          // paystackPrice: updatedProduct.price,
+          // paystackCurrency: updatedProduct.currency,
+        };
+
+        return updated;
+      }
+    ]
   },
-  fields: [
+fields: [
     {
       name: 'user',
       type: 'relationship',
@@ -205,7 +203,7 @@ export const Products: CollectionConfig = {
       ],
     },
     {
-      name: 'priceId',
+      name: 'paystackProductId',
       access: {
         create: () => false,
         read: () => false,
@@ -217,7 +215,19 @@ export const Products: CollectionConfig = {
       },
     },
     {
-      name: 'stripeId',
+      name: 'paystackPrice',
+      access: {
+        create: () => false,
+        read: () => false,
+        update: () => false,
+      },
+      type: 'number',
+      admin: {
+        hidden: true,
+      },
+    },
+    {
+      name: 'paystackCurrency',
       access: {
         create: () => false,
         read: () => false,
