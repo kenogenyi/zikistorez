@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/utils'
 import { Check, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+ import type { Product } from '@/payload-types'
 
 interface PageProps {
   params: {
@@ -38,7 +39,8 @@ const Page = async ({ params }: PageProps) => {
     },
   })
 
-  const [product] = products
+
+  const [product] = products as unknown as Product[]
 
   if (!product) return notFound()
 
@@ -46,11 +48,14 @@ const Page = async ({ params }: PageProps) => {
     ({ value }) => value === product.category
   )?.label
 
-  const validUrls = product.images
-    .map(({ image }) =>
-      typeof image === 'string' ? image : image.url
-    )
-    .filter(Boolean) as string[]
+  const validUrls =
+    Array.isArray(product.images)
+      ? (product.images as { image: string | { url: string } }[])
+          .map(({ image }) =>
+            typeof image === 'string' ? image : image.url
+          )
+          .filter(Boolean) as string[]
+      : []
 
   return (
     <MaxWidthWrapper className='bg-white'>
