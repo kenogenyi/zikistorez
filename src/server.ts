@@ -6,7 +6,6 @@ import { appRouter } from './trpc'
 import { inferAsyncReturnType } from '@trpc/server'
 import bodyParser from 'body-parser'
 import { IncomingMessage } from 'http'
-// TODO: Ensure 'paystackWebhookHandler' is exported from './webhooks' or import the correct member
 import { paystackWebhookHandler } from './webhooks'
 import nextBuild from 'next/dist/build'
 import path from 'path'
