@@ -1,10 +1,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "target": "ES2020",
     "module": "CommonJS",
+    "moduleResolution": "node",
     "outDir": "dist",
-    "noEmit": false,
-    "jsx": "react"
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true
   },
   "include": ["src/server.ts", "src/payload.config.ts"]
 }
