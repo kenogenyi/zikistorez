@@ -18,7 +18,6 @@ export const paystackWebhookHandler = async (
 
   let event
   try {
-    // Paystack webhook verification: verify signature manually
     const crypto = await import('crypto');
     const hash = crypto.createHmac('sha512', process.env.PAYSTACK_WEBHOOK_SECRET || '')
       .update(body.toString('utf8'))
