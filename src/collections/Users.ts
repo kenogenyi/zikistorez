@@ -25,7 +25,7 @@ export const Users: CollectionConfig = {
     },
   },
   access: {
-    read: adminsAnd User,
+    read: adminsAndUser,
     create: () => true,
     update: ({ req }) => req.user.role === 'admin',
     delete: ({ req }) => req.user.role === 'admin',
