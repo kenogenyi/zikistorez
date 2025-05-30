@@ -18,14 +18,13 @@ export interface Config {
   };
   globals: {};
 }
+
 export interface User {
   id: string;
-  products?: (string | Product)[] | null;
-  product_files?: (string | ProductFile)[] | null;
-  role: 'admin' | 'user';
-  updatedAt: string;
-  createdAt: string;
   email: string;
+  password: string | null;
+
+  // Optional verification/login fields
   resetPasswordToken?: string | null;
   resetPasswordExpiration?: string | null;
   salt?: string | null;
@@ -34,50 +33,69 @@ export interface User {
   _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
-  password: string | null;
+
+  // Relations
+  products?: (string | Product)[] | null;
+  product_files?: (string | ProductFile)[] | null;
+
+  role: 'admin' | 'user';
+  updatedAt: string;
+  createdAt: string;
 }
+
 export interface Product {
-  paystackProductId: any;
   id: string;
-  user?: (string | null) | User;
   name: string;
   description?: string | null;
-  price: number;
   category: 'ui_kits' | 'icons';
+  price: number; // ✅ In NGN
+
+  approvedForSale?: 'pending' | 'approved' | 'denied' | null;
+
+  // Relations
+  user?: string | User | null;
   product_files: string | ProductFile;
-  approvedForSale?: ('pending' | 'approved' | 'denied') | null;
-  priceId?: string | null;
-  paystackId?: string | null;
   images: {
     image: string | Media;
     id?: string | null;
   }[];
+
+  // Paystack integration
+  paystackProductId: string;
+  paystackPrice?: number;
+  paystackCurrency?: string;
+
   updatedAt: string;
   createdAt: string;
 }
+
 export interface ProductFile {
   id: string;
-  user?: (string | null) | User;
-  updatedAt: string;
-  createdAt: string;
+  user?: string | User | null;
+
+  // Upload metadata
   url?: string | null;
   filename?: string | null;
   mimeType?: string | null;
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
+
+  updatedAt: string;
+  createdAt: string;
 }
+
 export interface Media {
   id: string;
-  user?: (string | null) | User;
-  updatedAt: string;
-  createdAt: string;
+  user?: string | User | null;
+
   url?: string | null;
   filename?: string | null;
   mimeType?: string | null;
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
+
   sizes?: {
     thumbnail?: {
       url?: string | null;
@@ -104,15 +122,23 @@ export interface Media {
       filename?: string | null;
     };
   };
-}
-export interface Order {
-  id: string;
-  _isPaid: boolean;
-  user: string | User;
-  products: (string | Product)[];
+
   updatedAt: string;
   createdAt: string;
 }
+
+export interface Order {
+  id: string;
+  _isPaid: boolean;
+
+  // Relations
+  user: string | User;
+  products: (string | Product)[];
+
+  updatedAt: string;
+  createdAt: string;
+}
+
 export interface PayloadPreference {
   id: string;
   user: {
@@ -121,9 +147,7 @@ export interface PayloadPreference {
   };
   key?: string | null;
   value?:
-    | {
-        [k: string]: unknown;
-      }
+    | { [key: string]: unknown }
     | unknown[]
     | string
     | number
@@ -132,6 +156,7 @@ export interface PayloadPreference {
   updatedAt: string;
   createdAt: string;
 }
+
 export interface PayloadMigration {
   id: string;
   name?: string | null;
@@ -139,5 +164,3 @@ export interface PayloadMigration {
   updatedAt: string;
   createdAt: string;
 }
-
-
