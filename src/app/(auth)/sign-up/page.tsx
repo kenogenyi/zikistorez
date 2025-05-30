@@ -1,22 +1,21 @@
 'use client';
 
-import { Icons } from '@/components/Icons';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AuthCredentialsValidator,
   TAuthCredentialsValidator,
 } from '@/lib/validators/account-credentials-validator';
-import { trpc } from '@/trpc/client';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ZodError } from 'zod';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { Icons } from '@/components/Icons';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 const Page = () => {
   const {
@@ -27,30 +26,32 @@ const Page = () => {
     resolver: zodResolver(AuthCredentialsValidator),
   });
 
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const { mutate, isLoading } = trpc.auth.createPayloadUser.useMutation({
-    onError: (err) => {
-      if (err.data?.code === 'CONFLICT') {
-        toast.error('This email is already in use. Sign in instead?');
-        return;
-      }
+  const onSubmit = async ({ email, password }: TAuthCredentialsValidator) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (err instanceof ZodError) {
-        toast.error(err.issues[0].message);
-        return;
+      if (res.ok) {
+        toast.success(`Verification email sent to ${email}.`);
+        router.push(`/verify-email?to=${email}`);
+      } else {
+        const error = await res.json();
+        toast.error(error.message || 'Signup failed.');
       }
-
+    } catch (err) {
       toast.error('Something went wrong. Please try again.');
-    },
-    onSuccess: ({ sentToEmail }) => {
-      toast.success(`Verification email sent to ${sentToEmail}.`);
-      router.push('/verify-email?to=' + sentToEmail);
-    },
-  });
-
-  const onSubmit = ({ email, password }: TAuthCredentialsValidator) => {
-    mutate({ email, password });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -74,48 +75,40 @@ const Page = () => {
           </Link>
         </div>
 
-        <div className='grid gap-6'>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className='grid gap-2'>
-              <div className='grid gap-1 py-2'>
-                <Label htmlFor='email'>Email</Label>
-                <Input
-                  {...register('email')}
-                  className={cn({
-                    'focus-visible:ring-red-500': errors.email,
-                  })}
-                  placeholder='you@example.com'
-                />
-                {errors?.email && (
-                  <p className='text-sm text-red-500'>
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className='grid gap-6'>
+          <div className='grid gap-1 py-2'>
+            <Label htmlFor='email'>Email</Label>
+            <Input
+              {...register('email')}
+              className={cn({
+                'focus-visible:ring-red-500': errors.email,
+              })}
+              placeholder='you@example.com'
+            />
+            {errors?.email && (
+              <p className='text-sm text-red-500'>{errors.email.message}</p>
+            )}
+          </div>
 
-              <div className='grid gap-1 py-2'>
-                <Label htmlFor='password'>Password</Label>
-                <Input
-                  {...register('password')}
-                  type='password'
-                  className={cn({
-                    'focus-visible:ring-red-500': errors.password,
-                  })}
-                  placeholder='Password'
-                />
-                {errors?.password && (
-                  <p className='text-sm text-red-500'>
-                    {errors.password.message}
-                  </p>
-                )}
-              </div>
+          <div className='grid gap-1 py-2'>
+            <Label htmlFor='password'>Password</Label>
+            <Input
+              {...register('password')}
+              type='password'
+              className={cn({
+                'focus-visible:ring-red-500': errors.password,
+              })}
+              placeholder='Password'
+            />
+            {errors?.password && (
+              <p className='text-sm text-red-500'>{errors.password.message}</p>
+            )}
+          </div>
 
-              <Button disabled={isLoading}>
-                {isLoading ? 'Creating...' : 'Sign up'}
-              </Button>
-            </div>
-          </form>
-        </div>
+          <Button disabled={loading}>
+            {loading ? 'Creating...' : 'Sign up'}
+          </Button>
+        </form>
       </div>
     </div>
   );
