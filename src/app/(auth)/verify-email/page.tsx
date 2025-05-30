@@ -1,20 +1,27 @@
-import VerifyEmail from '@/components/VerifyEmail'
-import Image from 'next/image'
+import VerifyEmail from '@/components/VerifyEmail';
+import Image from 'next/image';
 
 interface PageProps {
   searchParams: {
-    [key: string]: string | string[] | undefined
-  }
+    token?: string | string[];
+    to?: string | string[];
+  };
 }
 
 const VerifyEmailPage = ({ searchParams }: PageProps) => {
-  const token = searchParams.token
-  const toEmail = searchParams.to
+  const token = Array.isArray(searchParams.token)
+    ? searchParams.token[0]
+    : searchParams.token;
+
+  const toEmail = Array.isArray(searchParams.to)
+    ? searchParams.to[0]
+    : searchParams.to;
 
   return (
     <div className='container relative flex pt-20 flex-col items-center justify-center lg:px-0'>
       <div className='mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]'>
-        {token && typeof token === 'string' ? (
+
+        {token ? (
           <div className='grid gap-6'>
             <VerifyEmail token={token} />
           </div>
@@ -28,29 +35,20 @@ const VerifyEmailPage = ({ searchParams }: PageProps) => {
               />
             </div>
 
-            <h3 className='font-semibold text-2xl'>
-              Check your email
-            </h3>
+            <h3 className='font-semibold text-2xl'>Check your email</h3>
 
-            {toEmail ? (
-              <p className='text-muted-foreground text-center'>
-                We&apos;ve sent a verification link to{' '}
-                <span className='font-semibold'>
-                  {toEmail}
-                </span>
-                .
-              </p>
-            ) : (
-              <p className='text-muted-foreground text-center'>
-                We&apos;ve sent a verification link to your
-                email.
-              </p>
-            )}
+            <p className='text-muted-foreground text-center'>
+              We&apos;ve sent a verification link to{' '}
+              <span className='font-semibold'>
+                {toEmail || 'your email'}.
+              </span>
+            </p>
           </div>
         )}
+
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default VerifyEmailPage
+export default VerifyEmailPage;
