@@ -2,23 +2,25 @@ import { type ClassValue, clsx } from 'clsx'
 import { Metadata } from 'next'
 import { twMerge } from 'tailwind-merge'
 
+// Merge Tailwind classes safely
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Format price in NGN
 export function formatPrice(
   price: number | string,
   options: {
-    currency?: 'USD' | 'EUR' | 'GBP' | 'BDT'
+    currency?: 'NGN'
     notation?: Intl.NumberFormatOptions['notation']
   } = {}
 ) {
-  const { currency = 'USD', notation = 'compact' } = options
+  const { currency = 'NGN', notation = 'compact' } = options
 
   const numericPrice =
     typeof price === 'string' ? parseFloat(price) : price
 
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency,
     notation,
@@ -26,9 +28,10 @@ export function formatPrice(
   }).format(numericPrice)
 }
 
+// Construct metadata for zikistorez
 export function constructMetadata({
-  title = 'DigitalHippo - the marketplace for digital assets',
-  description = 'DigitalHippo is an open-source marketplace for high-quality digital goods.',
+  title = 'zikistorez - the marketplace for students assets',
+  description = 'zikistorez is an open-source marketplace for high-quality students goods.',
   image = '/thumbnail.png',
   icons = '/favicon.ico',
   noIndex = false,
@@ -56,10 +59,10 @@ export function constructMetadata({
       title,
       description,
       images: [image],
-      creator: '@joshtriedcoding',
+      creator: '@kenswagz', // optional: update if needed
     },
     icons,
-    metadataBase: new URL('https://digitalhippo.up.railway.app'),
+    metadataBase: new URL('https://zikistorez.up.railway.app'),
     ...(noIndex && {
       robots: {
         index: false,
