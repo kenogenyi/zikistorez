@@ -71,7 +71,7 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(__dirname, 'payload-types.ts'),
   },
-})
+}),
 email: {
   fromName: process.env.EMAIL_FROM_NAME,
   fromAddress: process.env.EMAIL_FROM_ADDRESS,
