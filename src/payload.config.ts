@@ -3,8 +3,9 @@ import { webpackBundler } from '@payloadcms/bundler-webpack'
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { slateEditor } from '@payloadcms/richtext-slate'
 import path from 'path'
-import { Users } from './collections/Users'
 import dotenv from 'dotenv'
+
+import { Users } from './collections/Users'
 import { Products } from './collections/Products/Products'
 import { Media } from './collections/Media'
 import { ProductFiles } from './collections/ProductFile'
@@ -14,9 +15,33 @@ dotenv.config({
   path: path.resolve(__dirname, '../.env'),
 })
 
+// ✅ PATCH: Allow media upload for admin users
+Media.access = {
+  create: ({ req }) => req.user && req.user.role === 'admin',
+  read: () => true,
+  update: ({ req }) => req.user && req.user.role === 'admin',
+  delete: ({ req }) => req.user && req.user.role === 'admin',
+}
+
+// ✅ PATCH: Update product price field to show currency in Naira
+if (Products.fields) {
+  Products.fields = Products.fields.map(field => {
+    if (field.name === 'price' && field.type === 'number') {
+      return {
+        ...field,
+        admin: {
+          ...(field.admin || {}),
+          description: 'Amount in Nigerian Naira (₦)',
+        },
+      }
+    }
+    return field
+  })
+}
+
 export default buildConfig({
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || '',
-  collections: [Users, Products, Media, ProductFiles, Orders], 
+  collections: [Users, Products, Media, ProductFiles, Orders],
   routes: {
     admin: '/sell',
   },
