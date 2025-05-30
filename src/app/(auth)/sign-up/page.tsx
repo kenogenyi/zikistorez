@@ -1,141 +1,70 @@
-'use client'
+'use client';
 
-import { Icons } from '@/components/Icons'
-import {
-  Button,
-  buttonVariants,
-} from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRight } from 'lucide-react'
-import Link from 'next/link'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react';
 
-import {
-  AuthCredentialsValidator,
-  TAuthCredentialsValidator,
-} from '@/lib/validators/account-credentials-validator'
-import { trpc } from '@/trpc/client'
-import { toast } from 'sonner'
-import { ZodError } from 'zod'
-import { useRouter } from 'next/navigation'
+export default function SignUpPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-const Page = () => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<TAuthCredentialsValidator>({
-    resolver: zodResolver(AuthCredentialsValidator),
-  })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  const router = useRouter()
-
-  const { mutate, isLoading } =
-    trpc.auth.createPayloadUser.useMutation({
-      onError: (err) => {
-        if (err.data?.code === 'CONFLICT') {
-          toast.error(
-            'This email is already in use. Sign in instead?'
-          )
-
-          return
-        }
-
-        if (err instanceof ZodError) {
-          toast.error(err.issues[0].message)
-
-          return
-        }
-
-        toast.error(
-          'Something went wrong. Please try again.'
-        )
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      onSuccess: ({ sentToEmail }) => {
-        toast.success(
-          `Verification email sent to ${sentToEmail}.`
-        )
-        router.push('/verify-email?to=' + sentToEmail)
-      },
-    })
+      body: JSON.stringify({ email, password }),
+    });
 
-  const onSubmit = ({
-    email,
-    password,
-  }: TAuthCredentialsValidator) => {
-    mutate({ email, password })
-  }
+    setLoading(false);
+
+    if (res.ok) {
+      alert('Account created! You can now sign in.');
+      window.location.href = '/sign-in';
+    } else {
+      const result = await res.json();
+      setError(result?.message || 'Sign-up failed. Please try again.');
+    }
+  };
 
   return (
-    <>
-      <div className='container relative flex pt-20 flex-col items-center justify-center lg:px-0'>
-        <div className='mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]'>
-          <div className='flex flex-col items-center space-y-2 text-center'>
-            <Icons.logo className='h-20 w-20' />
-            <h1 className='text-2xl font-semibold tracking-tight'>
-              Create an account
-            </h1>
+    <div className="min-h-screen flex items-center justify-center">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm p-4 bg-white shadow rounded">
+        <h2 className="text-xl font-semibold mb-4">Create an account</h2>
 
-            <Link
-              className={buttonVariants({
-                variant: 'link',
-                className: 'gap-1.5',
-              })}
-              href='/sign-in'>
-              Already have an account? Sign-in
-              <ArrowRight className='h-4 w-4' />
-            </Link>
-          </div>
+        {error && <p className="text-red-500 mb-3">{error}</p>}
 
-          <div className='grid gap-6'>
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <div className='grid gap-2'>
-                <div className='grid gap-1 py-2'>
-                  <Label htmlFor='email'>Email</Label>
-                  <Input
-                    {...register('email')}
-                    className={cn({
-                      'focus-visible:ring-red-500':
-                        errors.email,
-                    })}
-                    placeholder='you@example.com'
-                  />
-                  {errors?.email && (
-                    <p className='text-sm text-red-500'>
-                      {errors.email.message}
-                    </p>
-                  )}
-                </div>
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full mb-2 p-2 border border-gray-300 rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full mb-4 p-2 border border-gray-300 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-                <div className='grid gap-1 py-2'>
-                  <Label htmlFor='password'>Password</Label>
-                  <Input
-                    {...register('password')}
-                    type='password'
-                    className={cn({
-                      'focus-visible:ring-red-500':
-                        errors.password,
-                    })}
-                    placeholder='Password'
-                  />
-                  {errors?.password && (
-                    <p className='text-sm text-red-500'>
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
-
-                <Button>Sign up</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
-  )
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white p-2 rounded"
+          disabled={loading}
+        >
+          {loading ? 'Creating...' : 'Sign Up'}
+        </button>
+      </form>
+    </div>
+  );
 }
 
-export default Page
