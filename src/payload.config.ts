@@ -24,20 +24,27 @@ Media.access = {
 }
 
 // ✅ PATCH: Update product price field to show currency in Naira
-if (Products.fields) {
-  Products.fields = Products.fields.map(field => {
-    if (field.name === 'price' && field.type === 'number') {
+if (Array.isArray(Products.fields)) {
+  Products.fields = Products.fields.map((field) => {
+    if (
+      typeof field === 'object' &&
+      'name' in field &&
+      'type' in field &&
+      field.name === 'price' &&
+      field.type === 'number'
+    ) {
       return {
         ...field,
         admin: {
           ...(field.admin || {}),
           description: 'Amount in Nigerian Naira (₦)',
         },
-      }
+      };
     }
-    return field
-  })
+    return field;
+  });
 }
+
 
 export default buildConfig({
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || '',
