@@ -1,83 +1,60 @@
 import {
   AfterChangeHook,
   BeforeChangeHook,
-} from 'payload/dist/collections/config/types'
-import { PRODUCT_CATEGORIES } from '../../config'
-import { Access, CollectionConfig } from 'payload/types'
-import { Product, User } from '../../payload-types'
-import { paystack } from '../../lib/paystack'
+} from 'payload/dist/collections/config/types';
+import { PRODUCT_CATEGORIES } from '../../config';
+import { Access, CollectionConfig } from 'payload/types';
+import { Product, User } from '../../payload-types';
+import { paystack } from '../../lib/paystack';
 
-const addUser: BeforeChangeHook<Product> = async ({
-  req,
-  data,
-}) => {
-  const user = req.user
+const addUser: BeforeChangeHook<Product> = async ({ req, data }) => {
+  const user = req.user;
+  return { ...data, user: user.id };
+};
 
-  return { ...data, user: user.id }
-}
-
-const syncUser: AfterChangeHook<Product> = async ({
-  req,
-  doc,
-}) => {
+const syncUser: AfterChangeHook<Product> = async ({ req, doc }) => {
   const fullUser = await req.payload.findByID({
     collection: 'users',
     id: req.user.id,
-  })
+  });
 
   if (fullUser && typeof fullUser === 'object') {
-    const { products } = fullUser
+    const { products } = fullUser;
+    const productArray = Array.isArray(products) ? products : [];
 
-    const productArray = Array.isArray(products) ? products : []
-    const allIDs = [
-      ...(productArray.map((product) =>
-        typeof product === 'object' ? product.id : product
-      )),
-    ]
+    const allIDs = productArray.map((product) =>
+      typeof product === 'object' ? product.id : product
+    );
 
-    const createdProductIDs = allIDs.filter(
-      (id, index) => allIDs.indexOf(id) === index
-    )
-
-    const dataToUpdate = [...createdProductIDs, doc.id]
+    const createdProductIDs = [...new Set([...allIDs, doc.id])];
 
     await req.payload.update({
       collection: 'users',
       id: fullUser.id,
       data: {
-        products: dataToUpdate,
+        products: createdProductIDs,
       },
-    })
+    });
   }
-}
+};
 
-const isAdminOrHasAccess =
-  (): Access =>
-  ({ req: { user: _user } }) => {
-    const user = _user as User | undefined
+const isAdminOrHasAccess = (): Access => ({ req: { user: _user } }) => {
+  const user = _user as User | undefined;
+  if (!user) return false;
+  if (user.role === 'admin') return true;
 
-    if (!user) return false
-    if (user.role === 'admin') return true
+  const userProductIDs = (user.products || []).reduce<string[]>((acc, product) => {
+    if (!product) return acc;
+    acc.push(typeof product === 'string' ? product : product.id);
+    return acc;
+  }, []);
 
-    const userProductIDs = (user.products || []).reduce<
-      Array<string>
-    >((acc, product) => {
-      if (!product) return acc
-      if (typeof product === 'string') {
-        acc.push(product)
-      } else {
-        acc.push(product.id)
-      }
-
-      return acc
-    }, [])
-
-    return {
-      id: {
-        in: userProductIDs,
-      },
-    }
-  }
+  return {
+    id: {
+      in: userProductIDs,
+    },
+  };
+};
 
 export const Products: CollectionConfig = {
   slug: 'products',
@@ -98,48 +75,42 @@ export const Products: CollectionConfig = {
         let updatedProduct: any;
 
         if (args.operation === 'create') {
-          // Use the correct method to create a product via Paystack API
-          const createdProduct = await paystack.post('/product', {
-            name: data.name,
-            price: Math.round(data.price * 100),
-            currency: 'USD',
-          }).then(res => res.data);
+          const createdProduct = await paystack
+            .post('/product', {
+              name: data.name,
+              price: Math.round(data.price * 100),
+              currency: 'NGN', // ✅ NGN
+            })
+            .then((res) => res.data);
 
           updatedProduct = createdProduct;
-        } else if (args.operation === 'update') {
-          // Use the correct method to update a product via Paystack API
-          const updated = await paystack.put(`/product/${data.paystackProductId}`, {
-            name: data.name,
-            price: Math.round(data.price * 100),
-            currency: 'USD',
-          }).then(res => res.data);
+        } else if (args.operation === 'update' && data.paystackProductId) {
+          const updated = await paystack
+            .put(`/product/${data.paystackProductId}`, {
+              name: data.name,
+              price: Math.round(data.price * 100),
+              currency: 'NGN', // ✅ NGN
+            })
+            .then((res) => res.data);
 
           updatedProduct = updated;
         }
 
-        // Only assign properties that exist on the Product type.
-        const updated: Product = {
+        return {
           ...data,
-          paystackProductId: updatedProduct.id,
-          // If paystackPrice and paystackCurrency are not in Product type, remove these lines:
-          // paystackPrice: updatedProduct.price,
-          // paystackCurrency: updatedProduct.currency,
+          paystackProductId: updatedProduct?.id,
         };
-
-        return updated;
-      }
-    ]
+      },
+    ],
   },
-fields: [
+  fields: [
     {
       name: 'user',
       type: 'relationship',
       relationTo: 'users',
       required: true,
       hasMany: false,
-      admin: {
-        condition: () => false,
-      },
+      admin: { condition: () => false },
     },
     {
       name: 'name',
@@ -154,27 +125,25 @@ fields: [
     },
     {
       name: 'price',
-      label: 'Price in USD',
-      min: 0,
-      max: 1000,
+      label: 'Price in NGN', // ✅ changed from USD
       type: 'number',
+      min: 0,
+      max: 1000000,
       required: true,
     },
     {
       name: 'category',
       label: 'Category',
       type: 'select',
-      options: PRODUCT_CATEGORIES.map(
-        ({ label, value }) => ({ label, value })
-      ),
+      options: PRODUCT_CATEGORIES.map(({ label, value }) => ({ label, value })),
       required: true,
     },
     {
       name: 'product_files',
       label: 'Product file(s)',
       type: 'relationship',
-      required: true,
       relationTo: 'product_files',
+      required: true,
       hasMany: false,
     },
     {
@@ -188,55 +157,28 @@ fields: [
         update: ({ req }) => req.user.role === 'admin',
       },
       options: [
-        {
-          label: 'Pending verification',
-          value: 'pending',
-        },
-        {
-          label: 'Approved',
-          value: 'approved',
-        },
-        {
-          label: 'Denied',
-          value: 'denied',
-        },
+        { label: 'Pending verification', value: 'pending' },
+        { label: 'Approved', value: 'approved' },
+        { label: 'Denied', value: 'denied' },
       ],
     },
     {
       name: 'paystackProductId',
-      access: {
-        create: () => false,
-        read: () => false,
-        update: () => false,
-      },
       type: 'text',
-      admin: {
-        hidden: true,
-      },
+      access: { create: () => false, read: () => false, update: () => false },
+      admin: { hidden: true },
     },
     {
       name: 'paystackPrice',
-      access: {
-        create: () => false,
-        read: () => false,
-        update: () => false,
-      },
       type: 'number',
-      admin: {
-        hidden: true,
-      },
+      access: { create: () => false, read: () => false, update: () => false },
+      admin: { hidden: true },
     },
     {
       name: 'paystackCurrency',
-      access: {
-        create: () => false,
-        read: () => false,
-        update: () => false,
-      },
       type: 'text',
-      admin: {
-        hidden: true,
-      },
+      access: { create: () => false, read: () => false, update: () => false },
+      admin: { hidden: true },
     },
     {
       name: 'images',
@@ -259,4 +201,4 @@ fields: [
       ],
     },
   ],
-}
+};
