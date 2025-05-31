@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import {
   privateProcedure,
-  publicProcedure,
   router,
 } from './trpc'
 import { TRPCError } from '@trpc/server'
 import { getPayloadClient } from '../get-payload'
 import { paystack } from '../lib/paystack'
+import { Product } from '../payload-types' // import your Product interface
 
 export const paymentRouter = router({
   createSession: privateProcedure
@@ -21,7 +21,8 @@ export const paymentRouter = router({
 
       const payload = await getPayloadClient()
 
-      const { docs: products } = await payload.find({
+      // 1) Cast docs to Product[]
+      const { docs: rawDocs } = await payload.find({
         collection: 'products',
         where: {
           id: {
@@ -29,11 +30,14 @@ export const paymentRouter = router({
           },
         },
       })
+      const products = rawDocs as Product[]
 
+      // 2) Filter out any product without a valid price
       const filteredProducts = products.filter((prod) =>
         typeof prod.price === 'number'
       )
 
+      // 3) Create the order in Payload
       const order = await payload.create({
         collection: 'orders',
         data: {
@@ -43,13 +47,15 @@ export const paymentRouter = router({
         },
       })
 
+      // 4) Compute total in NGN
       const totalAmount = filteredProducts.reduce(
         (sum, prod) => sum + prod.price,
         0
       )
 
+      // 5) Initialize Paystack transaction (amount in kobo)
       const paystackPayload = {
-        amount: totalAmount * 100, // amount in kobo
+        amount: totalAmount * 100,
         email: user.email,
         metadata: {
           userId: user.id,
@@ -64,9 +70,8 @@ export const paymentRouter = router({
           '/transaction/initialize',
           paystackPayload
         )
-
         return { url: paystackInit.data.authorization_url }
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Paystack initialization failed',
@@ -78,9 +83,7 @@ export const paymentRouter = router({
     .input(z.object({ orderId: z.string() }))
     .query(async ({ input }) => {
       const { orderId } = input
-
       const payload = await getPayloadClient()
-
       const { docs: orders } = await payload.find({
         collection: 'orders',
         where: {
@@ -95,7 +98,6 @@ export const paymentRouter = router({
       }
 
       const [order] = orders
-
       return { isPaid: order._isPaid }
     }),
 })
