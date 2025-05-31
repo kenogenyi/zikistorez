@@ -4,20 +4,48 @@ import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { slateEditor } from '@payloadcms/richtext-slate'
 import path from 'path'
 import dotenv from 'dotenv'
+import type { Field } from 'payload/types'
 
-// Load environment variables
-dotenv.config({
-  path: path.resolve(__dirname, '../.env'),
-})
-
-// Collection imports
 import { Users } from './collections/Users'
 import { Products } from './collections/Products/Products'
 import { Media } from './collections/Media'
 import { ProductFiles } from './collections/ProductFile'
 import { Orders } from './collections/Orders'
 
-// ✅ Ensure media access is restricted to admin users
+dotenv.config({
+  path: path.resolve(__dirname, '../.env'),
+})
+
+// 1) Fix the “Property 'name' does not exist on type 'Field'” error
+if (Array.isArray(Products.fields)) {
+  Products.fields = Products.fields.map((field) => {
+    // Narrow to only objects that actually have both `name` and `type`
+    if (
+      typeof field === 'object' &&
+      'name' in field &&
+      'type' in field
+    ) {
+      const f = field as Partial<Field> & {
+        name: string
+        type: string
+      }
+
+      if (f.name === 'price' && f.type === 'number') {
+        return {
+          ...field,
+          admin: {
+            ...(field.admin || {}),
+            description: 'Amount in Nigerian Naira (₦)',
+          },
+        }
+      }
+    }
+
+    return field
+  })
+}
+
+// 2) Restrict Media uploads to admin only
 Media.access = {
   create: ({ req }) => req.user?.role === 'admin',
   read: () => true,
@@ -25,27 +53,6 @@ Media.access = {
   delete: ({ req }) => req.user?.role === 'admin',
 }
 
-// ✅ Update price field label to Naira (₦)
-if (Array.isArray(Products.fields)) {
-  Products.fields = Products.fields.map((field) => {
-    if (
-      typeof field === 'object' &&
-      field.name === 'price' &&
-      field.type === 'number'
-    ) {
-      return {
-        ...field,
-        admin: {
-          ...(field.admin || {}),
-          description: 'Amount in Nigerian Naira (₦)',
-        },
-      }
-    }
-    return field
-  })
-}
-
-// ✅ Build final Payload config
 export default buildConfig({
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || '',
   collections: [Users, Products, Media, ProductFiles, Orders],
