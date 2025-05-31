@@ -6,7 +6,7 @@ import {
 import { TRPCError } from '@trpc/server'
 import { getPayloadClient } from '../get-payload'
 import { paystack } from '../lib/paystack'
-import { Product } from '../payload-types' // import your Product interface
+import { Product } from '../payload-types'
 
 export const paymentRouter = router({
   createSession: privateProcedure
@@ -21,23 +21,23 @@ export const paymentRouter = router({
 
       const payload = await getPayloadClient()
 
-      // 1) Cast docs to Product[]
+      // 1) Fetch rawDocs from Payload
       const { docs: rawDocs } = await payload.find({
         collection: 'products',
         where: {
-          id: {
-            in: productIds,
-          },
+          id: { in: productIds },
         },
       })
-      const products = rawDocs as Product[]
 
-      // 2) Filter out any product without a valid price
-      const filteredProducts = products.filter((prod) =>
-        typeof prod.price === 'number'
+      // 2) “Force‐cast” rawDocs → Product[] by way of 'unknown'
+      const products = rawDocs as unknown as Product[]
+
+      // 3) Filter only those products that have a valid `price` (number)
+      const filteredProducts = products.filter(
+        (prod) => typeof prod.price === 'number'
       )
 
-      // 3) Create the order in Payload
+      // 4) Create a new 'orders' entry
       const order = await payload.create({
         collection: 'orders',
         data: {
@@ -47,13 +47,13 @@ export const paymentRouter = router({
         },
       })
 
-      // 4) Compute total in NGN
+      // 5) Sum up 'price' (all in NGN) to get a total
       const totalAmount = filteredProducts.reduce(
         (sum, prod) => sum + prod.price,
         0
       )
 
-      // 5) Initialize Paystack transaction (amount in kobo)
+      // 6) Build your Paystack payload (amount in kobo)
       const paystackPayload = {
         amount: totalAmount * 100,
         email: user.email,
@@ -65,6 +65,7 @@ export const paymentRouter = router({
         callback_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/thank-you?orderId=${order.id}`,
       }
 
+      // 7) Initialize Paystack transaction
       try {
         const paystackInit = await paystack.post(
           '/transaction/initialize',
@@ -84,12 +85,11 @@ export const paymentRouter = router({
     .query(async ({ input }) => {
       const { orderId } = input
       const payload = await getPayloadClient()
+
       const { docs: orders } = await payload.find({
         collection: 'orders',
         where: {
-          id: {
-            equals: orderId,
-          },
+          id: { equals: orderId },
         },
       })
 
