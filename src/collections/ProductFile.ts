@@ -1,17 +1,17 @@
-import { User } from '../payload-types';
-import { BeforeChangeHook } from 'payload/dist/collections/config/types';
-import { Access, CollectionConfig } from 'payload/types';
+  import { User } from '../payload-types'
+import { BeforeChangeHook } from 'payload/dist/collections/config/types'
+import { Access, CollectionConfig } from 'payload/types'
 
 const addUser: BeforeChangeHook = ({ req, data }) => {
-  const user = req.user as User | null;
-  return { ...data, user: user?.id };
-};
+  const user = req.user as User | null
+  return { ...data, user: user?.id }
+}
 
 const yourOwnAndPurchased: Access = async ({ req }) => {
-  const user = req.user as User | null;
+  const user = req.user as User | null
 
-  if (user?.role === 'admin') return true;
-  if (!user) return false;
+  if (user?.role === 'admin') return true
+  if (!user) return false
 
   const { docs: products } = await req.payload.find({
     collection: 'products',
@@ -21,11 +21,11 @@ const yourOwnAndPurchased: Access = async ({ req }) => {
         equals: user.id,
       },
     },
-  });
+  })
 
   const ownProductFileIds = products
     .map((prod) => prod.product_files)
-    .flat();
+    .flat()
 
   const { docs: orders } = await req.payload.find({
     collection: 'orders',
@@ -35,60 +35,67 @@ const yourOwnAndPurchased: Access = async ({ req }) => {
         equals: user.id,
       },
     },
-  });
+  })
 
   const purchasedProductFileIds = orders
-    .flatMap((order) => {
+    .map((order) => {
       const products = Array.isArray(order.products) ? order.products : [];
-      return products
-        .map((product) => {
-          if (typeof product === 'string') {
-            // Skip invalid result
-            return null;
-          }
+      return products.map((product) => {
+        if (typeof product === 'string')
+          return req.payload.logger.error(
+            'Search depth not sufficient to find purchased file IDs'
+          )
 
-          return typeof product.product_files === 'string'
-            ? product.product_files
-            : product.product_files?.id;
-        })
-        .filter(Boolean);
-    });
+        return typeof product.product_files === 'string'
+          ? product.product_files
+          : product.product_files.id
+      })
+    })
+    .filter(Boolean)
+    .flat()
 
   return {
     id: {
-      in: [...ownProductFileIds, ...purchasedProductFileIds],
+      in: [
+        ...ownProductFileIds,
+        ...purchasedProductFileIds,
+      ],
     },
-  };
-};
+  }
+}
 
 export const ProductFiles: CollectionConfig = {
   slug: 'product_files',
   admin: {
-    hidden: ({ user }) => user?.role !== 'admin',
+    hidden: ({ user }) => user.role !== 'admin',
   },
   hooks: {
     beforeChange: [addUser],
   },
   access: {
     read: yourOwnAndPurchased,
-    update: ({ req }) => req.user?.role === 'admin',
-    delete: ({ req }) => req.user?.role === 'admin',
+    update: ({ req }) => req.user.role === 'admin',
+    delete: ({ req }) => req.user.role === 'admin',
   },
   upload: {
     staticURL: '/product_files',
     staticDir: 'product_files',
-    mimeTypes: ['image/*', 'font/*', 'application/postscript'],
+    mimeTypes: [
+      'image/*',
+      'font/*',
+      'application/postscript',
+    ],
   },
   fields: [
     {
       name: 'user',
       type: 'relationship',
       relationTo: 'users',
-      hasMany: false,
-      required: true,
       admin: {
         condition: () => false,
       },
+      hasMany: false,
+      required: true,
     },
   ],
-};
+}
