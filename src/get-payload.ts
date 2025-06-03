@@ -10,8 +10,8 @@ dotenv.config({
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.resend.com',
-  port: 465,
   secure: true,
+  port: 465,
   auth: {
     user: 'resend',
     pass: process.env.RESEND_API_KEY,
@@ -50,16 +50,16 @@ export const getPayloadClient = async ({
         fromName: 'zikistorez',
       },
       secret: process.env.PAYLOAD_SECRET,
-      local: !initOptions?.express,
-      ...initOptions,
+      local: initOptions?.express ? false : true,
+      ...(initOptions || {}),
     })
   }
 
   try {
     cached.client = await cached.promise
-  } catch (error) {
+  } catch (e: unknown) {
     cached.promise = null
-    throw error
+    throw e
   }
 
   return cached.client
