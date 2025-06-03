@@ -9,7 +9,6 @@ export const appRouter = router({
   auth: authRouter,
   payment: paymentRouter,
 
-  // ✅ Public infinite product query (pagination + filtering)
   getInfiniteProducts: publicProcedure
     .input(
       z.object({
@@ -24,10 +23,15 @@ export const appRouter = router({
 
       const payload = await getPayloadClient()
 
-      const parsedQueryOpts: Record<string, { equals: string }> = {}
+      const parsedQueryOpts: Record<
+        string,
+        { equals: string }
+      > = {}
 
       Object.entries(queryOpts).forEach(([key, value]) => {
-        parsedQueryOpts[key] = { equals: value }
+        parsedQueryOpts[key] = {
+          equals: value,
+        }
       })
 
       const page = cursor || 1
