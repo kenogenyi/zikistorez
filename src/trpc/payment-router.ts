@@ -1,19 +1,20 @@
 import { z } from 'zod'
 import {
   privateProcedure,
+  publicProcedure,
   router,
 } from './trpc'
 import { TRPCError } from '@trpc/server'
 import { getPayloadClient } from '../get-payload'
 import { paystack } from '../lib/paystack'
-import { Product } from '../payload-types'
+// import type Stripe from 'stripe'
 
 export const paymentRouter = router({
   createSession: privateProcedure
     .input(z.object({ productIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
       const { user } = ctx
-      const { productIds } = input
+      let { productIds } = input
 
       if (productIds.length === 0) {
         throw new TRPCError({ code: 'BAD_REQUEST' })
@@ -21,23 +22,19 @@ export const paymentRouter = router({
 
       const payload = await getPayloadClient()
 
-      // 1) Fetch rawDocs from Payload
-      const { docs: rawDocs } = await payload.find({
+      const { docs: products } = await payload.find({
         collection: 'products',
         where: {
-          id: { in: productIds },
+          id: {
+            in: productIds,
+          },
         },
       })
 
-      // 2) “Force‐cast” rawDocs → Product[] by way of 'unknown'
-      const products = rawDocs as unknown as Product[]
-
-      // 3) Filter only those products that have a valid `price` (number)
-      const filteredProducts = products.filter(
-        (prod) => typeof prod.price === 'number'
+      const filteredProducts = products.filter((prod) =>
+        Boolean(prod.priceId)
       )
 
-      // 4) Create a new 'orders' entry
       const order = await payload.create({
         collection: 'orders',
         data: {
@@ -47,13 +44,13 @@ export const paymentRouter = router({
         },
       })
 
-      // 5) Sum up 'price' (all in NGN) to get a total
+      // Prepare Paystack transaction initialization payload
       const totalAmount = filteredProducts.reduce(
-        (sum, prod) => sum + prod.price,
+        (sum, prod) => sum + (typeof prod.price === 'number' ? prod.price : 0),
         0
       )
 
-      // 6) Build your Paystack payload (amount in kobo)
+      // Paystack expects amount in kobo (for NGN)
       const paystackPayload = {
         amount: totalAmount * 100,
         email: user.email,
@@ -65,31 +62,59 @@ export const paymentRouter = router({
         callback_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/thank-you?orderId=${order.id}`,
       }
 
-      // 7) Initialize Paystack transaction
+      let paystackInit
       try {
-        const paystackInit = await paystack.post(
-          '/transaction/initialize',
-          paystackPayload
-        )
-        return { url: paystackInit.data.authorization_url }
-      } catch {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Paystack initialization failed',
+        paystackInit = await paystack.post('/transaction/initialize', paystackPayload)
+      } catch (err) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Paystack initialization failed' })
+      }
+
+      // Declare line_items array before using it
+      const line_items: Array<{
+        price: string
+        quantity: number
+        adjustable_quantity?: { enabled: boolean }
+      }> = []
+
+      filteredProducts.forEach((product) => {
+        line_items.push({
+          price: product.priceId as string,
+          quantity: 1,
         })
+      })
+
+      line_items.push({
+        price: 'price_1OCeBwA19umTXGu8s4p2G3aX',
+        quantity: 1,
+        adjustable_quantity: {
+          enabled: false,
+        },
+      })
+
+      try {
+        // Return Paystack payment URL
+        return { url: paystackInit.data.authorization_url }
+
+        // Stripe is not used; returning Paystack URL instead
+        // return { url: stripeSession.url }
+        return { url: paystackInit.data.authorization_url }
+      } catch (err) {
+        return { url: null }
       }
     }),
-
   pollOrderStatus: privateProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ input }) => {
       const { orderId } = input
+
       const payload = await getPayloadClient()
 
       const { docs: orders } = await payload.find({
         collection: 'orders',
         where: {
-          id: { equals: orderId },
+          id: {
+            equals: orderId,
+          },
         },
       })
 
@@ -98,6 +123,7 @@ export const paymentRouter = router({
       }
 
       const [order] = orders
+
       return { isPaid: order._isPaid }
     }),
 })
