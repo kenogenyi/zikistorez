@@ -2,16 +2,14 @@ import { type ClassValue, clsx } from 'clsx'
 import { Metadata } from 'next'
 import { twMerge } from 'tailwind-merge'
 
-// Merge Tailwind classes safely
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Format price in NGN
 export function formatPrice(
   price: number | string,
   options: {
-    currency?: 'NGN'
+    currency?: 'NGN' |
     notation?: Intl.NumberFormatOptions['notation']
   } = {}
 ) {
@@ -28,7 +26,6 @@ export function formatPrice(
   }).format(numericPrice)
 }
 
-// Construct metadata for zikistorez
 export function constructMetadata({
   title = 'zikistorez - the marketplace for students assets',
   description = 'zikistorez is an open-source marketplace for high-quality students goods.',
@@ -59,7 +56,7 @@ export function constructMetadata({
       title,
       description,
       images: [image],
-      creator: '@kenswagz', // optional: update if needed
+      creator: '@kenswag',
     },
     icons,
     metadataBase: new URL('https://zikistorez.up.railway.app'),
