@@ -17,7 +17,7 @@ export const useAuth = () => {
         }
       )
 
-      if (!res.ok) throw new Error('Failed to sign out')
+      if (!res.ok) throw new Error()
 
       toast.success('Signed out successfully')
 
