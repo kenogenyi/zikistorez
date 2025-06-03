@@ -5,14 +5,13 @@ import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 export const authRouter = router({
-  // Create a new Payload user
   createPayloadUser: publicProcedure
     .input(AuthCredentialsValidator)
     .mutation(async ({ input }) => {
       const { email, password } = input
       const payload = await getPayloadClient()
 
-      // Check if user already exists
+      // check if user already exists
       const { docs: users } = await payload.find({
         collection: 'users',
         where: {
@@ -22,9 +21,8 @@ export const authRouter = router({
         },
       })
 
-      if (users.length !== 0) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'Email already in use' })
-      }
+      if (users.length !== 0)
+        throw new TRPCError({ code: 'CONFLICT' })
 
       await payload.create({
         collection: 'users',
@@ -38,11 +36,11 @@ export const authRouter = router({
       return { success: true, sentToEmail: email }
     }),
 
-  // Verify email with token
   verifyEmail: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ input }) => {
       const { token } = input
+
       const payload = await getPayloadClient()
 
       const isVerified = await payload.verifyEmail({
@@ -50,31 +48,33 @@ export const authRouter = router({
         token,
       })
 
-      if (!isVerified) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired token' })
-      }
+      if (!isVerified)
+        throw new TRPCError({ code: 'UNAUTHORIZED' })
 
       return { success: true }
     }),
 
-  // Sign in with credentials
   signIn: publicProcedure
     .input(AuthCredentialsValidator)
     .mutation(async ({ input, ctx }) => {
       const { email, password } = input
       const { res } = ctx
+
       const payload = await getPayloadClient()
 
       try {
         await payload.login({
           collection: 'users',
-          data: { email, password },
+          data: {
+            email,
+            password,
+          },
           res,
         })
 
         return { success: true }
       } catch (err) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid credentials' })
+        throw new TRPCError({ code: 'UNAUTHORIZED' })
       }
     }),
 })
