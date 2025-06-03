@@ -102,16 +102,16 @@ export const Products: CollectionConfig = {
           const createdProduct = await paystack.post('/product', {
             name: data.name,
             price: Math.round(data.price * 100),
-            currency: 'USD',
+            currency: 'NGN',
           }).then(res => res.data);
 
           updatedProduct = createdProduct;
         } else if (args.operation === 'update') {
           // Use the correct method to update a product via Paystack API
-          const updated = await paystack.put(/product/${data.paystackProductId}, {
+          const updated = await paystack.put(`/product/${data.paystackProductId}`, {
             name: data.name,
             price: Math.round(data.price * 100),
-            currency: 'USD',
+            currency: 'NGN',
           }).then(res => res.data);
 
           updatedProduct = updated;
@@ -154,9 +154,9 @@ fields: [
     },
     {
       name: 'price',
-      label: 'Price in USD',
+      label: 'Price in NGN',
       min: 0,
-      max: 1000,
+      max: 1000000,
       type: 'number',
       required: true,
     },
