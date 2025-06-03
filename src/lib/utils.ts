@@ -9,7 +9,7 @@ export function cn(...inputs: ClassValue[]) {
 export function formatPrice(
   price: number | string,
   options: {
-    currency?: 'NGN' |
+    currency?: 'NGN',
     notation?: Intl.NumberFormatOptions['notation']
   } = {}
 ) {
