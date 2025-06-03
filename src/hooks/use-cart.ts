@@ -18,18 +18,12 @@ type CartState = {
 
 export const useCart = create<CartState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       items: [],
-      addItem: (product) => {
-        const exists = get().items.some(
-          (item) => item.product.id === product.id
-        )
-        if (exists) return
-
-        set((state) => ({
-          items: [...state.items, { product }],
-        }))
-      },
+      addItem: (product) =>
+        set((state) => {
+          return { items: [...state.items, { product }] }
+        }),
       removeItem: (id) =>
         set((state) => ({
           items: state.items.filter(
