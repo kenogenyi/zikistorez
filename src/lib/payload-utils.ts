@@ -7,8 +7,6 @@ export const getServerSideUser = async (
 ) => {
   const token = cookies.get('payload-token')?.value
 
-  if (!token) return { user: null }
-
   const meRes = await fetch(
     `${process.env.NEXT_PUBLIC_SERVER_URL}/api/users/me`,
     {
@@ -18,12 +16,9 @@ export const getServerSideUser = async (
     }
   )
 
-  if (!meRes.ok) return { user: null }
-
   const { user } = (await meRes.json()) as {
     user: User | null
   }
 
   return { user }
 }
-
