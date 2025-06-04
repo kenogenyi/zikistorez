@@ -31,7 +31,7 @@ export default async function RootLayout({
         <main className='relative flex flex-col min-h-screen'>
           <Providers>
             {/* ✅ Pass user to Navbar */}
-            <Navbar user={user} />
+            <Navbar />
             <div className='flex-grow flex-1'>{children}</div>
             <Footer />
           </Providers>
