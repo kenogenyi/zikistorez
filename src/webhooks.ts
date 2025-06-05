@@ -102,7 +102,7 @@ export const paystackWebhookHandler = async (
     
     try {
       const emailData = await resend.emails.send({
-        from: 'zikistore <ogenyiken@gmail.com>',
+        from: 'zikistore <zikistorez.swag.com>',
         to: [user.email as string],
         subject:
           'Thanks for your order! This is your receipt.',
