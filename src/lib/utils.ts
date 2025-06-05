@@ -59,7 +59,7 @@ export function constructMetadata({
       creator: '@kenswag',
     },
     icons,
-    metadataBase: new URL('https://zikistorez.up.railway.app'),
+    metadataBase: new URL('zikistorez-production.up.railway.app'),
     ...(noIndex && {
       robots: {
         index: false,
