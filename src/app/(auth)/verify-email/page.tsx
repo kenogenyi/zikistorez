@@ -31,7 +31,7 @@ const VerifyEmailPage = ({ searchParams }: PageProps) => {
               <Image
                 src='/hippo-email-sent.png'
                 fill
-                alt='hippo email sent image'
+                alt='zikistorez email sent image'
               />
             </div>
 
